@@ -1,0 +1,184 @@
+1.pip install opencv-python numpy
+
+2.
+import cv2
+
+# Path to your input video
+video_path = r"D:\shoplifting detection\Copy of market.mp4"
+
+# Output directory for saving frames
+output_directory = r"D:\shoplifting detection\frames"
+
+# Open the video file
+cap = cv2.VideoCapture(video_path)
+
+# Get video properties
+fps = cap.get(cv2.CAP_PROP_FPS)
+total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+# Calculate the desired frame interval for 2 frames per second
+frame_interval = int(fps / 2)
+
+# Create the output directory if it doesn't exist
+import os
+os.makedirs(output_directory, exist_ok=True)
+
+frame_count = 0
+frame_number = 0
+
+while frame_count < total_frames:
+    ret, frame = cap.read()
+    if not ret:
+        break
+    
+    # If the frame number is a multiple of frame_interval, save the frame
+    if frame_count % frame_interval == 0:
+        frame_filename = f"frame_{frame_number:04d}.jpg"
+        frame_path = os.path.join(output_directory, frame_filename)
+        cv2.imwrite(frame_path, frame)
+        frame_number += 1
+        
+    frame_count += 1
+
+    # Display progress
+    print(f"Processed {frame_count} / {total_frames} frames", end="\r")
+
+cap.release()
+print("\nFrame extraction completed.")
+
+3.import urllib.request
+import os
+
+# Create a directory to store YOLOv3 files
+yolo_directory = r"D:\shoplifting detection\yolov3"
+os.makedirs(yolo_directory, exist_ok=True)
+
+# YOLOv3 weights and configuration URLs
+yolov3_weights_url = "https://pjreddie.com/media/files/yolov3.weights"
+yolov3_cfg_url = "https://github.com/pjreddie/darknet/blob/master/cfg/yolov3.cfg?raw=true"
+
+# Download YOLOv3 weights and configuration
+weights_path = os.path.join(yolo_directory, "yolov3.weights")
+cfg_path = os.path.join(yolo_directory, "yolov3.cfg")
+
+urllib.request.urlretrieve(yolov3_weights_url, weights_path)
+urllib.request.urlretrieve(yolov3_cfg_url, cfg_path)
+
+print("YOLOv3 weights and configuration files downloaded.")
+
+
+4.import cv2
+import os
+
+# Path to YOLOv3 weights and configuration files
+yolo_directory = r"D:\shoplifting detection\yolov3"
+weights_path = os.path.join(yolo_directory, "yolov3.weights")
+cfg_path = os.path.join(yolo_directory, "yolov3.cfg")
+
+# Load YOLOv3 model
+net = cv2.dnn.readNetFromDarknet(cfg_path, weights_path)
+
+# Specify the backend and target for OpenCV DNN
+net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
+net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+
+print("YOLOv3 model loaded and configured.")
+
+
+5. import cv2
+import cv2
+import os
+import numpy as np
+
+# Paths
+input_video_path = r"D:\shoplifting detection\Copy of market.mp4"
+frames_directory = r"D:\shoplifting detection\frames"
+output_video_path = r"D:\shoplifting detection\output_video.mp4"
+
+# Load YOLOv3 model
+yolo_directory = r"D:\shoplifting detection\yolov3"
+weights_path = os.path.join(yolo_directory, "yolov3.weights")
+cfg_path = os.path.join(yolo_directory, "yolov3.cfg")
+
+net = cv2.dnn.readNetFromDarknet(cfg_path, weights_path)
+net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
+net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+
+# Get list of frames
+frame_files = sorted([f for f in os.listdir(frames_directory) if f.endswith(".jpg")])
+
+# Open the input video file
+cap = cv2.VideoCapture(input_video_path)
+fps = int(cap.get(cv2.CAP_PROP_FPS))
+frame_size = (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+# Define codec and create VideoWriter object for output
+fourcc = cv2.VideoWriter_fourcc(*"XVID")
+out = cv2.VideoWriter(output_video_path, fourcc, fps, frame_size)
+
+frame_number = 0
+frame_idx = 0
+label_start_frame = 34
+label_end_frame = 60
+
+while cap.isOpened():
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    frame_number += 1
+
+    if label_start_frame <= frame_number <= label_end_frame:
+        # Read and process the corresponding frame from the frames directory
+        labeled_frame = cv2.imread(os.path.join(frames_directory, frame_files[frame_idx]))
+
+        # Merge the original frame and labeled frame
+        merged_frame = cv2.addWeighted(frame, 0.8, labeled_frame, 0.5, 0)
+
+        # Write the merged frame to the output video
+        out.write(merged_frame)
+
+        if frame_number == label_end_frame:
+            frame_idx = 0
+        else:
+            frame_idx += 1
+    else:
+        # Detect persons and draw bounding boxes
+        height, width, _ = frame.shape
+        blob = cv2.dnn.blobFromImage(frame, 1/255, (416, 416), swapRB=True, crop=False)
+        net.setInput(blob)
+        layer_names = net.getUnconnectedOutLayersNames()
+        outputs = net.forward(layer_names)
+        
+        for output in outputs:
+            for detection in output:
+                scores = detection[5:]
+                class_id = int(detection[1])
+                confidence = scores[class_id]
+
+                if confidence > 0.5 and class_id == 0:  # Class ID for 'person'
+                    center_x = int(detection[0] * width)
+                    center_y = int(detection[1] * height)
+                    w = int(detection[2] * width)
+                    h = int(detection[3] * height)
+
+                    x = int(center_x - w / 2)
+                    y = int(center_y - h / 2)
+
+                    cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                    cv2.putText(frame, "Person Detected", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+
+        # Write the frame to the output video
+        out.write(frame)
+
+    # Display progress
+    print(f"Processed frame {frame_number} / {total_frames}", end="\r")
+
+cap.release()
+out.release()
+cv2.destroyAllWindows()
+
+print("\nOutput video created.")
