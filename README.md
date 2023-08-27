@@ -1,1 +1,2 @@
 # Shoplifting_detection
+I tried to detect person detection and shoplifting in the given input video. I have used yolov3 model for person detection. For shoplifting detection the concept that I tried to implement was to extract frames from the given input video and label the range of frames where shoplifting occured manually. But it did not happen unfortunately so I have developed a prototype of what person detection looks like.
